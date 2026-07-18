@@ -1,0 +1,23 @@
+[
+  {
+    "id": "bench-press",
+    "name": "Bench Press",
+    "targetMuscleGroup": "Chest",
+    "videoUrl": "https://www.youtube.com/watch?v=rT7DgCr-3pg",
+    "description": "The bench press is an upper-body weight training exercise in which the trainee presses a weight upwards while lying on a weight training bench."
+  },
+  {
+    "id": "squat",
+    "name": "Squat",
+    "targetMuscleGroup": "Legs",
+    "videoUrl": "https://www.youtube.com/watch?v=ultWZbEVWhk",
+    "description": "The squat is a lower-body exercise that works all the major muscle groups of the legs, including the quadriceps, hamstrings, and glutes."
+  },
+  {
+    "id": "deadlift",
+    "name": "Deadlift",
+    "targetMuscleGroup": "Back",
+    "videoUrl": "https://www.youtube.com/watch?v=ytGaGIn3SjE",
+    "description": "The deadlift is a weight training exercise in which a loaded barbell or bar is lifted off the ground to the level of the hips, torso perpendicular to the floor, before being placed back on the ground."
+  }
+]
