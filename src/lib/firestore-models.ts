@@ -1,9 +1,18 @@
 export interface Exercise {
-  id?: string;
+  id: string; // WGER id or our own UUID
   name: string;
-  targetMuscleGroup: string;
-  videoUrl: string;
-  description: string;
+  description: string; // HTML content from WGER
+  primaryMuscles: string[]; // e.g., ['Chest', 'Shoulders']
+  secondaryMuscles: string[]; // e.g., ['Triceps']
+  equipment: string[]; // e.g., ['Barbell', 'Dumbbell']
+  category: string; // e.g., 'Strength'
+  videoUrl?: string; // A direct link to a demonstration video
+  thumbnailUrl?: string; // A preview image
+}
+
+export interface UserPreferences {
+  workoutSplit: 'full-body' | 'upper-lower' | 'ppl' | 'body-part';
+  availableEquipment: string[]; // Matches the 'equipment' field in the Exercise model
 }
 
 export interface Workout {

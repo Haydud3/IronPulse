@@ -21,6 +21,11 @@ const mockUser: User = {
   providerData: [],
   metadata: {},
   toJSON: () => ({}),
+  refreshToken: "mock-refresh-token",
+  delete: async () => { console.log("mock user deleted"); },
+  getIdToken: async () => "mock-id-token",
+  getIdTokenResult: async () => (({ token: "mock-id-token" }) as any),
+  reload: async () => { console.log("mock user reloaded"); },
 };
 
 // A mock auth object for mock mode

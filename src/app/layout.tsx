@@ -33,19 +33,23 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <Header />
-            <main className="flex-1 pb-20 md:pb-0 md:p-8">{children}</main>
-            <BottomNavBar />
-          </AuthProvider>
-        </ThemeProvider>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <div className="relative flex w-full flex-col">
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <AuthProvider>
+              <div className="mx-auto flex w-full max-w-md flex-col">
+                <Header />
+                <main className="flex-1 pb-20 md:pb-0 md:p-8">{children}</main>
+                <BottomNavBar />
+              </div>
+            </AuthProvider>
+          </ThemeProvider>
+        </div>
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   DropdownMenu,
@@ -12,16 +13,18 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { Dumbbell } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 export default function Header() {
-  const { user, auth } = useAuth(); 
+  const { user, auth } = useAuth();
+  const router = useRouter();
 
   const handleSignOut = () => {
     if (auth) {
       auth.signOut();
     }
   };
-  
+
   const getInitials = (name?: string | null) => {
     if (!name) return "U";
     const names = name.split(' ');
@@ -36,7 +39,8 @@ export default function Header() {
         <Dumbbell className="h-6 w-6 text-primary" />
         IronPulse
       </Link>
-      <nav>
+      <nav className="flex items-center gap-4">
+        <ThemeToggle />
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger>
@@ -48,6 +52,9 @@ export default function Header() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => router.push('/profile')}>
+                Profile
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut}>
                 Sign Out
               </DropdownMenuItem>

@@ -1,146 +1,168 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Exercise, UserLog } from "@/lib/firestore-models";
+import { useParams } from "next/navigation";
+import { Exercise, UserLog, UserStats } from "@/lib/firestore-models";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
-import { useRouter, useParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Minus, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import { Info } from "lucide-react";
 
-type SetLog = {
-  reps: number;
-  weight: number;
-  notes?: string;
-};
+type Set = { reps: number; weight: number; };
 
-export default function LiveWorkoutPage() {
-  const params = useParams();
-  const { id } = params;
+export default function ExercisePage() {
   const { user } = useAuth();
-  const router = useRouter();
   const [exercise, setExercise] = useState<Exercise | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sets, setSets] = useState<Set[]>([{ reps: 0, weight: 0 }]);
 
-  // State for the logging form, now using numbers
-  const [reps, setReps] = useState(8);
-  const [weight, setWeight] = useState(20);
-  const [loggedSets, setLoggedSets] = useState<SetLog[]>([]);
+  const params = useParams();
+  const id = params.id as string;
 
   useEffect(() => {
-    const fetchExercise = async () => {
+    const fetchExerciseData = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const response = await fetch(`/api/exercises/${id}`);
-        if (!response.ok) throw new Error("Exercise not found");
-        const data = await response.json();
-        setExercise(data);
+        const [exerciseResponse, statsResponse] = await Promise.all([
+          fetch(`/api/exercises/${id}`),
+          fetch(`/api/user/stats`)
+        ]);
+        const exerciseData = await exerciseResponse.json();
+        const statsData = await statsResponse.json();
+        setExercise(exerciseData);
+        setStats(statsData);
       } catch (error) {
-        console.error("Failed to fetch exercise:", error);
-        setExercise(null);
+        console.error("Failed to fetch exercise data:", error);
       } finally {
         setLoading(false);
       }
     };
-    if (id) fetchExercise();
-  }, [id]);
+    if (user && id) {
+      fetchExerciseData();
+    }
+  }, [id, user]);
 
-  const handleLogSet = () => {
-    const newSet: SetLog = { reps, weight };
-    setLoggedSets([...loggedSets, newSet]);
+  const handleSetChange = (index: number, field: 'reps' | 'weight', value: string) => {
+    const newSets = [...sets];
+    newSets[index][field] = Number(value);
+    setSets(newSets);
+  };
+
+  const addSet = () => {
+    setSets([...sets, { reps: 0, weight: 0 }]);
   };
   
-  const handleFinishExercise = async () => {
-    // Save the last log if it's not empty
-    if (loggedSets.length > 0) {
-      if (process.env.NEXT_PUBLIC_MOCK_MODE === 'true') {
-        console.log('[Mock Mode] Pretending to save exercise log:', { userId: user?.uid, exerciseId: exercise?.id!, date: new Date(), sets: loggedSets });
-      } else if (user) {
-        try {
-          const userLog: Omit<UserLog, "id" | "workoutId"> = { userId: user.uid, exerciseId: exercise?.id!, date: new Date(), sets: loggedSets };
-          await addDoc(collection(db, "user-logs"), userLog);
-        } catch (e) { console.error("Error adding document: ", e); }
-      }
+  const handleLogWorkout = async () => {
+    if (!user || !exercise || sets.every(s => s.reps === 0 || s.weight === 0)) {
+       alert("Please enter at least one valid set (reps and weight > 0).");
+       return;
     }
-    router.push("/workout");
+    
+    const userLog = {
+      exerciseId: exercise.id,
+      date: new Date().toISOString(),
+      sets: sets.filter(s => s.reps > 0 && s.weight > 0),
+    };
+    
+    try {
+      const response = await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userLog),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to log workout.');
+      }
+
+      alert("Workout logged successfully!");
+      setSets([{ reps: 0, weight: 0 }]);
+      // Refetch stats to show new recommendation
+      const statsResponse = await fetch(`/api/user/stats`);
+      const statsData = await statsResponse.json();
+      setStats(statsData);
+
+
+    } catch (error) {
+      console.error(error);
+      alert("An error occurred while logging the workout.");
+    }
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  if (!exercise) return <div className="flex items-center justify-center min-h-screen">Exercise not found.</div>;
+  if (loading) {
+    return <p className="p-8">Loading exercise...</p>;
+  }
 
-  const getYouTubeID = (url: string) => url.split('v=')[1]?.substring(0, 11) || '';
-  const videoId = getYouTubeID(exercise.videoUrl);
+  if (!exercise) {
+    return <p className="p-8">Exercise not found.</p>;
+  }
+
+  const recommendation = stats?.progressiveOverload[exercise.id];
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-background text-foreground overflow-y-auto">
-      {/* Background Video */}
-      {videoId && (
-        <div className="absolute top-0 left-0 w-full h-1/2 z-0">
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0`}
-            title={exercise.name}
-            className="w-full h-full object-cover"
-            allow="autoplay; encrypted-media"
-          ></iframe>
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
+    <div className="p-4 md:p-8">
+      <header className="mb-8">
+        <h1 className="text-4xl font-bold tracking-tight">{exercise.name}</h1>
+        <div className="flex flex-wrap gap-2 mt-2">
+            {exercise.primaryMuscles?.map(m => <span key={m} className="bg-primary/10 text-primary px-2 py-1 rounded-full text-sm">{m}</span>)}
+            {exercise.secondaryMuscles?.map(m => <span key={m} className="bg-secondary/10 text-secondary px-2 py-1 rounded-full text-sm">{m}</span>)}
         </div>
-      )}
+      </header>
 
-      <div className="relative z-10 flex flex-col h-full p-6">
-        {/* Header */}
-        <div className="pt-24 text-center">
-          <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="text-4xl font-bold">{exercise.name}</motion.h1>
-          <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="text-muted-foreground">{exercise.targetMuscleGroup}</motion.p>
+      <div className="grid md:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-2xl font-semibold mb-4">Instructions</h2>
+          <div dangerouslySetInnerHTML={{ __html: exercise.description }} className="prose dark:prose-invert max-w-none" />
         </div>
+        
+        <div className="flex flex-col gap-8">
+          {recommendation && (
+            <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+              <CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-2">
+                 <Info className="w-6 h-6 text-blue-500" />
+                <CardTitle className="text-blue-900 dark:text-blue-300">Next Recommended Weight</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-blue-900 dark:text-blue-300">
+                  {recommendation.recommendedWeight} lbs
+                </p>
+                <p className="text-sm text-muted-foreground">Last workout: {recommendation.lastWeight} lbs</p>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Logging UI */}
-        <div className="flex-grow flex flex-col items-center justify-center space-y-8">
-          {/* Reps */}
-          <div className="text-center">
-            <label className="text-sm text-muted-foreground">REPS</label>
-            <div className="flex items-center gap-4">
-              <button onClick={() => setReps(r => Math.max(0, r - 1))} className="p-4 rounded-full bg-secondary"><Minus className="h-6 w-6" /></button>
-              <span className="text-6xl font-bold w-24 text-center">{reps}</span>
-              <button onClick={() => setReps(r => r + 1)} className="p-4 rounded-full bg-secondary"><Plus className="h-6 w-6" /></button>
-            </div>
-          </div>
-          {/* Weight */}
-          <div className="text-center">
-            <label className="text-sm text-muted-foreground">WEIGHT (KG)</label>
-            <div className="flex items-center gap-4">
-              <button onClick={() => setWeight(w => Math.max(0, w - 2.5))} className="p-4 rounded-full bg-secondary"><Minus className="h-6 w-6" /></button>
-              <span className="text-6xl font-bold w-24 text-center">{weight}</span>
-              <button onClick={() => setWeight(w => w + 2.5)} className="p-4 rounded-full bg-secondary"><Plus className="h-6 w-6" /></button>
-            </div>
-          </div>
-        </div>
-
-        {/* Log Set Button */}
-        <div className="flex justify-center">
-          <motion.button
-            onClick={handleLogSet}
-            whileTap={{ scale: 0.95 }}
-            className="w-48 h-16 flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-full text-lg font-semibold"
-          >
-            <Check className="h-6 w-6" /> Log Set
-          </motion.button>
-        </div>
-
-         {/* Logged Sets & Finish Button */}
-        <div className="mt-auto pt-8">
-           <div className="h-24 overflow-y-auto text-center text-sm space-y-1">
-             <AnimatePresence>
-              {loggedSets.map((set, index) => (
-                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} key={index} className="text-muted-foreground">
-                  Set {index + 1}: {set.reps} reps at {set.weight} kg
-                </motion.p>
-              ))}
-             </AnimatePresence>
-           </div>
-          <button onClick={handleFinishExercise} className="w-full mt-4 p-4 font-semibold bg-secondary text-secondary-foreground rounded-lg">Finish Exercise</button>
+          <Card>
+            <CardHeader>
+              <CardTitle>Log Your Workout</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {sets.map((set, index) => (
+                  <div key={index} className="grid grid-cols-3 gap-2 items-center">
+                    <span className="font-medium">Set {index + 1}</span>
+                    <Input 
+                      type="number" 
+                      placeholder="Reps" 
+                      value={set.reps || ''}
+                      onChange={(e) => handleSetChange(index, 'reps', e.target.value)}
+                    />
+                    <Input 
+                      type="number" 
+                      placeholder="Weight" 
+                      value={set.weight || ''}
+                      onChange={(e) => handleSetChange(index, 'weight', e.target.value)}
+                    />
+                  </div>
+                ))}
+                <Button onClick={addSet} variant="outline">Add Set</Button>
+                <Button onClick={handleLogWorkout}>Log Workout</Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
